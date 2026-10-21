@@ -137,6 +137,20 @@ plt.grid(True, alpha=0.3)
 plt.legend()
 plt.show()
 
+# Get an estimate only if we have the visits we need
+def get_estimate(times, values, target, kind):
+    times = np.asarray(times, dtype=float)
+    values = np.asarray(values, dtype=float)
+    if not np.isfinite(target):
+        return np.nan
+    if not (np.isfinite(times).all() and np.isfinite(values).all()):
+        return np.nan
+    if not np.all(np.diff(times) > 0):
+        return np.nan
+    if not times[0] <= target <= times[-1]:
+        return np.nan
+    return float(interp1d(times, values, kind=kind)(target))
+
 results = []
 
 for idx, row in df.iterrows():
@@ -144,20 +158,131 @@ for idx, row in df.iterrows():
 
     # TODO: pull this subject's lag_months and ff_R values into arrays,
     #       the same way we did for Subject 13-0004 above.
+    lag_months = np.array([
+        row['lag_months_baseline'], row['lag_months_y1'], row['lag_months_y2']
+    ])
+    ff_values = np.array([
+        row['ff_baseline_R'], row['ff_y1_R'], row['ff_y2_R']
+    ])
 
     # TODO: if this subject has at least baseline + Year 1 (no NaNs), compute
     #       their linear estimate at T1 (hint: interp1d with kind='linear').
     #       If they don't have enough data, use NaN instead.
+    estimate_T1_linear = np.nan
+
+    if pd.notna(lag_months[:2]).all() and pd.notna(ff_values[:2]).all():
+        if lag_months[0] < lag_months[1] and lag_months[0] <= T1 <= lag_months[1]:
+            f_linear = interp1d(lag_months[:2], ff_values[:2], kind='linear')
+            estimate_T1_linear = float(f_linear(T1))
 
     # TODO: if this subject has all three visits (no NaNs), compute their
     #       quadratic estimate at T2 (hint: interp1d with kind='quadratic').
     #       If they don't, use NaN instead.
+    estimate_T2_quadratic = np.nan
+
+    if pd.notna(lag_months).all() and pd.notna(ff_values).all():
+        if lag_months[0] < lag_months[1] < lag_months[2]:
+            if lag_months[0] <= T2 <= lag_months[2]:
+                f_quadratic = interp1d(lag_months, ff_values, kind='quadratic')
+                estimate_T2_quadratic = float(f_quadratic(T2))
+
+    # Get the clinical severity scores for this person too
+    severity_values = np.array([
+        row['clinical_severity_score_baseline'],
+        row['clinical_severity_score_y1'],
+        row['clinical_severity_score_y2']
+    ])
+
+    # Leave it as NaN if we don't have enough data
+    severity_T1_linear = np.nan
+    severity_T2_quadratic = np.nan
+
+    if pd.notna(lag_months[:2]).all() and pd.notna(severity_values[:2]).all():
+        if lag_months[0] < lag_months[1] and lag_months[0] <= T1 <= lag_months[1]:
+            severity_linear = interp1d(
+                lag_months[:2], severity_values[:2], kind='linear'
+            )
+            severity_T1_linear = float(severity_linear(T1))
+
+    if pd.notna(lag_months).all() and pd.notna(severity_values).all():
+        if lag_months[0] < lag_months[1] < lag_months[2]:
+            if lag_months[0] <= T2 <= lag_months[2]:
+                severity_quadratic = interp1d(
+                    lag_months, severity_values, kind='quadratic'
+                )
+                severity_T2_quadratic = float(severity_quadratic(T2))
 
     # TODO: append a dict like
     #       {'subject_id': subject_id, 'estimate_T1_linear': ..., 'estimate_T2_quadratic': ...}
     #       to `results`
-    pass
+    results.append({
+        'subject_id': subject_id,
+        'estimate_T1_linear': estimate_T1_linear,
+        'estimate_T2_quadratic': estimate_T2_quadratic,
+        'severity_T1_linear': severity_T1_linear,
+        'severity_T2_quadratic': severity_T2_quadratic
+    })
 
 # TODO: turn `results` into a DataFrame and inspect it
 # results_df = pd.DataFrame(results)
 # results_df.head()
+results_df = pd.DataFrame(results)
+print(results_df.to_string(index=False))
+
+# Check how many estimates we got for each one
+print('\nNumber of estimates:')
+print(results_df.count())
+
+# Save the results like the class example
+results_df.to_csv('interpolated_estimates.csv', index=False)
+print('Saved interpolated_estimates.csv')
+
+# Plot clinical severity for the same person as the fat fraction example
+row = df.loc[df['subject_id'] == '13-0004'].iloc[0]
+lag_months = np.array([
+    row['lag_months_baseline'], row['lag_months_y1'], row['lag_months_y2']
+])
+severity_values = np.array([
+    row['clinical_severity_score_baseline'],
+    row['clinical_severity_score_y1'],
+    row['clinical_severity_score_y2']
+])
+
+# This person has all three scores, so we can show both estimates
+if pd.notna(lag_months).all() and pd.notna(severity_values).all():
+    if lag_months[0] < lag_months[1] < lag_months[2]:
+        if lag_months[0] <= T1 <= lag_months[1] and lag_months[0] <= T2 <= lag_months[2]:
+            severity_linear = interp1d(
+                lag_months[:2], severity_values[:2], kind='linear'
+            )
+            severity_quadratic = interp1d(
+                lag_months, severity_values, kind='quadratic'
+            )
+            severity_estimate_T1 = float(severity_linear(T1))
+            severity_estimate_T2 = float(severity_quadratic(T2))
+
+            print(f'Clinical severity at T1: {severity_estimate_T1:.2f}')
+            print(f'Clinical severity at T2: {severity_estimate_T2:.2f}')
+
+            x_curve = np.linspace(lag_months[0], lag_months[-1], 200)
+            severity_curve = severity_quadratic(x_curve)
+
+            plt.figure(figsize=(7.5, 5))
+            plt.plot(x_curve, severity_curve, color=ORANGE, linestyle='--',
+                     label='Quadratic (all 3 points)')
+            plt.plot(lag_months[:2], severity_values[:2], color=PINK,
+                     linestyle='--', label='Linear (baseline -> Year 1)')
+            plt.scatter(lag_months, severity_values, color=TEAL, s=90,
+                        zorder=4, label='Measured visits (known)')
+            plt.scatter([T1], [severity_estimate_T1], color=PINK, marker='D',
+                        s=120, zorder=5, label=f'Linear estimate @ T1={T1:.1f}')
+            plt.scatter([T2], [severity_estimate_T2], color=ORANGE, marker='D',
+                        s=120, zorder=5, label=f'Quadratic estimate @ T2={T2:.1f}')
+            plt.title('Subject 13-0004 — clinical severity')
+            plt.xlabel('Months since baseline (lag_months)')
+            plt.ylabel('Clinical severity score')
+            plt.grid(True, alpha=0.3)
+            plt.legend()
+            plt.show()
+else:
+    print('Not enough data for the clinical severity example plot.')
