@@ -220,3 +220,154 @@ if pd.notna(lag_months).all() and pd.notna(severity_values).all():
             plt.show()
 else:
     print('Not enough data for the clinical severity example plot.')
+
+    # Compare changes in fat fraction and clinical severity for the same people
+from scipy.stats import spearmanr
+
+correlation_results = []
+# Baseline to Year 1
+paired = df[['subject_id', 'ff_baseline_R', 'ff_y1_R',
+             'clinical_severity_score_baseline', 'clinical_severity_score_y1',
+             'lag_months_baseline', 'lag_months_y1']].dropna().copy()
+
+paired['ff_change'] = paired['ff_y1_R'] - paired['ff_baseline_R']
+paired['severity_change'] = (
+    paired['clinical_severity_score_y1'] - paired['clinical_severity_score_baseline']
+)
+n = len(paired)
+rho = np.nan
+p_approx = np.nan
+p_shuffle = np.nan
+
+# We need some variation in both changes to calculate a correlation
+if n >= 3 and paired['ff_change'].nunique() > 1 and paired['severity_change'].nunique() > 1:
+    rho, p_approx = spearmanr(paired['ff_change'], paired['severity_change'])
+
+    # Shuffle the pairings to check the p-value with this small group
+    # The seed makes the answer repeatable when someone else runs it
+    rng = np.random.default_rng(42)
+    extreme = 0
+    for repeat in range(9999):
+        shuffled = rng.permutation(paired['severity_change'].to_numpy())
+        shuffled_rho, unused_p = spearmanr(paired['ff_change'], shuffled)
+        if abs(shuffled_rho) >= abs(rho) - 1e-12:
+            extreme = extreme + 1
+    p_shuffle = (extreme + 1) / 10000
+else:
+    print('Not enough data or variation for the Year 1 correlation.')
+
+print('\nBaseline to Year 1:')
+print('Participants with both changes:', n)
+print('Spearman rho:', rho)
+print('Approximate p-value:', p_approx)
+print('Two-sided shuffled p-value:', p_shuffle)
+print('Follow-up months (minimum, median, maximum):',
+      paired['lag_months_y1'].min(), paired['lag_months_y1'].median(), paired['lag_months_y1'].max())
+
+correlation_results.append({
+    'comparison': 'Baseline to Year 1',
+    'n_pairs': n,
+    'spearman_rho': rho,
+    'p_approx': p_approx,
+    'p_permutation': p_shuffle,
+    'followup_months_min': paired['lag_months_y1'].min(),
+    'followup_months_median': paired['lag_months_y1'].median(),
+    'followup_months_max': paired['lag_months_y1'].max()
+})
+paired.to_csv('changes_year1.csv', index=False)
+
+# Each dot is one person with both changes available
+plt.figure(figsize=(8, 5.5))
+plt.scatter(paired['ff_change'], paired['severity_change'],
+            color=TEAL, s=70, alpha=0.75)
+plt.axhline(0, color='gray', linestyle='--', linewidth=1)
+plt.axvline(0, color='gray', linestyle='--', linewidth=1)
+plt.title(f'Do fat fraction and clinical severity change together?\n'
+          f'Baseline to Year 1 | {n} participants')
+plt.xlabel('Change in right TA fat fraction (percentage points)')
+plt.ylabel('Change in clinical severity score (points)')
+plt.text(0.03, 0.97, f'Spearman rho = {rho:.2f}\nPermutation p = {p_shuffle:.3f}',
+         transform=plt.gca().transAxes, va='top',
+         bbox=dict(facecolor='white', alpha=0.85, edgecolor='lightgray'))
+plt.grid(alpha=0.2)
+plt.figtext(0.5, 0.01, 'Change = follow-up minus baseline. Each dot represents one participant; dots may overlap.',
+            ha='center', fontsize=8)
+plt.tight_layout(rect=[0, 0.04, 1, 1])
+plt.show()
+# Baseline to Year 2
+paired = df[['subject_id', 'ff_baseline_R', 'ff_y2_R',
+             'clinical_severity_score_baseline', 'clinical_severity_score_y2',
+             'lag_months_baseline', 'lag_months_y2']].dropna().copy()
+
+paired['ff_change'] = paired['ff_y2_R'] - paired['ff_baseline_R']
+paired['severity_change'] = (
+    paired['clinical_severity_score_y2'] - paired['clinical_severity_score_baseline']
+)
+n = len(paired)
+rho = np.nan
+p_approx = np.nan
+p_shuffle = np.nan
+
+# We need some variation in both changes to calculate a correlation
+if n >= 3 and paired['ff_change'].nunique() > 1 and paired['severity_change'].nunique() > 1:
+    rho, p_approx = spearmanr(paired['ff_change'], paired['severity_change'])
+
+    # Shuffle the pairings to check the p-value with this small group
+    # The seed makes the answer repeatable when someone else runs it
+    rng = np.random.default_rng(42)
+    extreme = 0
+    for repeat in range(9999):
+        shuffled = rng.permutation(paired['severity_change'].to_numpy())
+        shuffled_rho, unused_p = spearmanr(paired['ff_change'], shuffled)
+        if abs(shuffled_rho) >= abs(rho) - 1e-12:
+            extreme = extreme + 1
+    p_shuffle = (extreme + 1) / 10000
+else:
+    print('Not enough data or variation for the Year 2 correlation.')
+
+print('\nBaseline to Year 2:')
+print('Participants with both changes:', n)
+print('Spearman rho:', rho)
+print('Approximate p-value:', p_approx)
+print('Two-sided shuffled p-value:', p_shuffle)
+print('Follow-up months (minimum, median, maximum):',
+      paired['lag_months_y2'].min(), paired['lag_months_y2'].median(), paired['lag_months_y2'].max())
+
+correlation_results.append({
+    'comparison': 'Baseline to Year 2',
+    'n_pairs': n,
+    'spearman_rho': rho,
+    'p_approx': p_approx,
+    'p_permutation': p_shuffle,
+    'followup_months_min': paired['lag_months_y2'].min(),
+    'followup_months_median': paired['lag_months_y2'].median(),
+    'followup_months_max': paired['lag_months_y2'].max()
+})
+paired.to_csv('changes_year2.csv', index=False)
+
+# Each dot is one person with both changes available
+plt.figure(figsize=(8, 5.5))
+plt.scatter(paired['ff_change'], paired['severity_change'],
+            color=TEAL, s=70, alpha=0.75)
+plt.axhline(0, color='gray', linestyle='--', linewidth=1)
+plt.axvline(0, color='gray', linestyle='--', linewidth=1)
+plt.title(f'Do fat fraction and clinical severity change together?\n'
+          f'Baseline to Year 2 | {n} participants')
+plt.xlabel('Change in right TA fat fraction (percentage points)')
+plt.ylabel('Change in clinical severity score (points)')
+plt.text(0.03, 0.97, f'Spearman rho = {rho:.2f}\nPermutation p = {p_shuffle:.3f}',
+         transform=plt.gca().transAxes, va='top',
+         bbox=dict(facecolor='white', alpha=0.85, edgecolor='lightgray'))
+plt.grid(alpha=0.2)
+plt.figtext(0.5, 0.01, 'Change = follow-up minus baseline. Each dot represents one participant; dots may overlap.',
+            ha='center', fontsize=8)
+plt.tight_layout(rect=[0, 0.04, 1, 1])
+plt.show()
+# We did two comparisons, so show corrected p-values too
+correlation_df = pd.DataFrame(correlation_results)
+correlation_df['p_bonferroni'] = correlation_df['p_permutation'] * 2
+correlation_df.loc[correlation_df['p_bonferroni'] > 1, 'p_bonferroni'] = 1
+print('\nCorrelation results:')
+print(correlation_df.to_string(index=False))
+correlation_df.to_csv('spearman_results.csv', index=False)
+print('Saved spearman_results.csv')
