@@ -1,0 +1,5 @@
+outcome,followup,n_pairs,mean_change,median_change,followup_months_min,followup_months_median,followup_months_max,test,statistic,p_value,mean_change_ci95_low,mean_change_ci95_high,p_bonferroni
+Right TA muscle fat fraction,Year 1,30,1.1228539212000002,0.7717987524999996,11.15,12.41,24.3,Paired t-test,2.3639587865920446,0.0249936575938168,0.1513927703337129,2.0943150720662875,0.0999746303752672
+Right TA muscle fat fraction,Year 2,25,1.7872864194800002,0.9616333990000001,22.13,25.08,42.77,Paired t-test,3.0128307041978766,0.006019286184991147,0.5629302466481256,3.011642592311875,0.024077144739964588
+Clinical severity score,Year 1,32,0.09375,0.0,11.15,12.41,24.3,Wilcoxon signed-rank,31.0,0.5157209207286565,,,1.0
+Clinical severity score,Year 2,27,0.18518518518518517,0.0,22.13,24.95,42.77,Wilcoxon signed-rank,23.0,0.35290082341101536,,,1.0
